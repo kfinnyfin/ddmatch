@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DD MATCH Genogram</title>
+<title>DD MATCH Interactive Business Genogram</title>
 <style>
     :root {
         --owner-color: #3b82f6;
@@ -178,7 +178,14 @@
     }
     #tooltip.visible { opacity: 1; transform: translateY(0); }
     .tooltip-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; }
-    .profile-pic { width: 50px; height: 50px; border-radius: 8px; background: #cbd5e1; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; color: #ffffff; }
+    
+    /* Profile Pic Styles */
+    .profile-pic { 
+        width: 50px; height: 50px; border-radius: 8px; background-color: #cbd5e1; 
+        display: flex; align-items: center; justify-content: center; 
+        font-weight: 800; font-size: 20px; color: #ffffff; 
+    }
+    
     .tooltip-title h3 { font-size: 18px; font-weight: 800; color: #0f172a; margin: 0 0 5px 0; }
     .tooltip-tag { display: inline-block; padding: 4px 10px; border-radius: 9999px; font-size: 10px; font-weight: 800; text-transform: uppercase; }
     .tag-owner { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
@@ -213,8 +220,8 @@
 </div>
 
 <div class="container">
-    <h1>DD MATCH Genogram</h1>
-    <p class="subtitle"> </p>
+    <h1>DD MATCH Interactive Business Genogram</h1>
+    <p class="subtitle">Hover over individuals to view their roles, or click the <strong>Four Rooms</strong> below for a deep-dive analysis.</p>
     
     <div class="controls-wrapper">
         <div class="filter-bar">
@@ -336,13 +343,13 @@
                 <circle cx="0" cy="0" r="16" class="nextgen-shape" /><text y="30" class="name">River</text>
             </g>
             <g class="person-node gen-3" data-role="nextgen" data-rooms="family,owner,board,management" transform="translate(560, 520)" data-name="Adam" data-type="nextgen" data-share="Future Succession" data-desc="Next generation member. Future management candidate currently building outside career.">
-                <circle cx="0" cy="0" r="16" class="nextgen-shape" /><text y="30" class="name">Adam</text><text y="42" class="detail">Engaged</text>
+                <circle cx="0" cy="0" r="16" class="nextgen-shape" /><text y="30" class="name">Adam</text><text y="42" class="detail"></text>
             </g>
             <g class="person-node gen-3" data-role="nextgen" data-rooms="family,owner,board,management" transform="translate(660, 520)" data-name="Danny" data-type="nextgen" data-share="Future Succession" data-desc="Next generation member. Future management candidate currently building outside career.">
-                <circle cx="0" cy="0" r="16" class="nextgen-shape" /><text y="30" class="name">Danny</text><text y="42" class="detail">Married</text>
+                <circle cx="0" cy="0" r="16" class="nextgen-shape" /><text y="30" class="name">Danny</text><text y="42" class="detail"></text>
             </g>
             <g class="person-node gen-3" data-role="nextgen" data-rooms="family,owner" transform="translate(760, 520)" data-name="Josh" data-type="nextgen" data-share="Future Succession" data-desc="Next generation member.">
-                <circle cx="0" cy="0" r="16" class="nextgen-shape" /><text y="30" class="name">Josh</text><text y="42" class="detail">Single</text>
+                <circle cx="0" cy="0" r="16" class="nextgen-shape" /><text y="30" class="name">Josh</text><text y="42" class="detail"></text>
             </g>
             <g class="person-node gen-3" data-role="nextgen" data-rooms="family,owner" transform="translate(910, 520)" data-name="Caitlin" data-type="nextgen" data-share="Future Succession" data-desc="Next generation member. Shares will eventually be passed down to her and Kyle.">
                 <circle cx="0" cy="0" r="16" class="nextgen-shape" /><text y="30" class="name">Caitlin</text>
@@ -525,7 +532,7 @@
         document.getElementById('deep-dive-modal').classList.remove('active');
     }
 
-    // --- Hover Tooltip Logic ---
+    // --- Hover Tooltip Logic & Automated Image Pulling ---
     const tooltip = document.getElementById('tooltip');
     const tooltipName = document.getElementById('tooltip-name');
     const tooltipTag = document.getElementById('tooltip-tag');
@@ -540,18 +547,26 @@
 
     nodes.forEach(node => {
         node.addEventListener('mouseenter', (e) => {
-            const name = node.getAttribute('data-name');
+            const rawName = node.getAttribute('data-name');
             const type = node.getAttribute('data-type');
             const share = node.getAttribute('data-share');
             const desc = node.getAttribute('data-desc');
             const activeRooms = node.getAttribute('data-rooms').split(',');
 
-            tooltipName.textContent = name;
+            // Extract just the first name and make it lowercase for the image lookup
+            const firstName = rawName.split(' ')[0].toLowerCase().replace(/[^a-z]/g, '');
+
+            tooltipName.textContent = rawName;
             tooltipShare.textContent = share;
             tooltipDesc.textContent = desc;
             tooltipTag.textContent = type;
             tooltipTag.className = `tooltip-tag tag-${type}`;
-            tooltipPic.textContent = name.charAt(0);
+            
+            // AUTOMATED IMAGE PULLING
+            tooltipPic.textContent = ""; // clears the initial
+            tooltipPic.style.backgroundImage = `url('images/${firstName}.jpg')`; 
+            tooltipPic.style.backgroundSize = "cover";
+            tooltipPic.style.backgroundPosition = "center";
 
             tooltip.style.display = 'block';
             setTimeout(() => tooltip.classList.add('visible'), 10);
