@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DD MATCH Interactive Business Genogram</title>
+<style>
+    :root {
+        --owner-color: #3b82f6;
+        --manager-color: #1e3a8a;
+        --family-color: #0f766e;
+        --board-color: #d97706;
+        --wall-color: #64748b; 
+    }
+    body {
+        font-family: 'Helvetica Neue', Arial, sans-serif;
+        background-color: #f8fafc;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 40px;
+        margin: 0;
+        overflow-x: auto;
+    }
+    .container {
+        background: #ffffff;
+        padding: 40px;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        text-align: center;
+        border: 1px solid #e2e8f0;
+        position: relative; 
+        max-width: 1700px;
+        width: 100%;
+    }
+    h1 { color: #0f172a; margin-bottom: 5px; font-weight: 800; letter-spacing: -0.5px; }
+    p.subtitle { color: #64748b; font-size: 15px; margin-bottom: 30px; }
+    
+    /* Top Controls */
+    .controls-wrapper {
+        display: flex; flex-direction: column; align-items: center; gap: 20px;
+        margin-bottom: 30px; padding: 20px; background: #f1f5f9; border-radius: 12px;
+    }
+    .filter-bar { display: flex; gap: 12px; }
+    .filter-btn {
+        background: #ffffff; border: 1px solid #cbd5e1; padding: 8px 16px;
+        border-radius: 999px; font-size: 13px; font-weight: bold; color: #334155;
+        cursor: pointer; transition: all 0.2s ease;
+    }
+    .filter-btn:hover, .filter-btn.active { background: #3b82f6; color: white; border-color: #2563eb; }
+
+    .timeline-container { display: flex; align-items: center; gap: 15px; width: 450px; background: #ffffff; padding: 10px 20px; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.02);}
+    .timeline-label { font-weight: 800; color: #0f172a; font-size: 13px; white-space: nowrap; }
+    input[type=range] { flex-grow: 1; cursor: pointer; accent-color: #3b82f6; }
+
+    /* SVG Layout */
+    .svg-container { position: relative; margin-bottom: 40px; }
+    svg { max-width: 100%; height: auto; }
+    
+    /* Legend Styling (HTML Overlay) */
+    .html-legend {
+        position: absolute; top: 20px; left: 20px; background: #f8fafc; border: 1px solid #e2e8f0;
+        border-radius: 8px; padding: 20px; text-align: left; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); z-index: 10;
+    }
+    .legend-title { font-size: 14px; font-weight: 800; color: #0f172a; margin-bottom: 15px; }
+    .legend-item { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; font-size: 13px; color: #334155; font-weight: 500;}
+    .legend-item:last-child { margin-bottom: 0; }
+    .legend-color { width: 18px; height: 18px; border-radius: 3px; display: inline-block; border: 1.5px solid; }
+    .legend-color.owner-color { background: #3b82f6; border-color: #2563eb; }
+    .legend-color.manager-color { background: #1e3a8a; border-color: #172554; }
+    .legend-color.spouse-color { background: #e2e8f0; border-color: #94a3b8; border-radius: 50%; }
+    .legend-color.nextgen-color { background: #ccfbf1; border-color: #0f766e; border-radius: 50%; }
+    .legend-dash { width: 18px; height: 3px; background: transparent; border-top: 3px dashed #d97706; display: inline-block; margin-top: 5px;}
+
+    /* SVG Shapes */
+    .owner-shape { fill: #3b82f6; stroke: #2563eb; stroke-width: 2px; transition: all 0.4s ease; }          
+    .manager-shape { fill: #1e3a8a; stroke: #172554; stroke-width: 2px; transition: all 0.4s ease; }        
+    .nonowner-shape { fill: #e2e8f0; stroke: #94a3b8; stroke-width: 2px; transition: all 0.4s ease; }      
+    .nextgen-shape { fill: #ccfbf1; stroke: #0f766e; stroke-width: 2px; transition: all 0.4s ease; }       
+    .deceased-line { stroke: #334155; stroke-width: 3px; stroke-linecap: round; } 
+
+    .dimmed { opacity: 0.15 !important; transition: opacity 0.3s ease; }
+    .person-node { cursor: pointer; transition: opacity 0.4s ease; }
+    .person-node:hover .owner-shape { fill: #60a5fa; stroke-width: 3px; }
+    .person-node:hover .manager-shape { fill: #312e81; stroke-width: 3px; }
+    .person-node:hover .nonowner-shape { fill: #cbd5e1; stroke-width: 3px; }
+    .person-node:hover .nextgen-shape { fill: #99f6e4; stroke-width: 3px; }
+    
+    .link-line { stroke: #64748b; stroke-width: 2px; fill: none; transition: opacity 0.4s ease; }
+    .trust-line { stroke: #38bdf8; stroke-width: 14px; fill: none; opacity: 0.15; stroke-linecap: round; stroke-linejoin: round; transition: opacity 0.4s ease;}
+    .inheritance-line { stroke: #d97706; stroke-width: 2px; stroke-dasharray: 6, 4; fill: none; transition: opacity 0.4s ease;}
+    
+    text { font-size: 11px; text-anchor: middle; fill: #0f172a; pointer-events: none; }
+    .name { font-weight: 800; font-size: 13px; fill: #0f172a; } 
+    .detail { font-size: 10px; fill: #64748b; }
+    .highlight-text { font-size: 10px; fill: #b91c1c; font-weight: bold; }
+    .manager-text { font-size: 10px; fill: #1e3a8a; font-weight: bold; }
+    .inheritance-text { font-size: 10px; fill: #d97706; font-weight: bold; transition: opacity 0.4s ease;}
+    
+    /* Four Room Model Floorplan */
+    .four-room-wrapper { max-width: 1100px; margin: 0 auto; }
+    .four-room-header { text-align: center; margin-bottom: 20px; }
+    .four-room-header h2 { margin: 0; color: #0f172a; font-weight: 800; }
+    .four-room-header p { margin: 5px 0 0 0; color: #64748b; font-size: 14px; }
+
+    .four-room-house {
+        display: grid; grid-template-columns: 1.8fr 1.2fr; grid-template-rows: 1fr 1fr 1fr; 
+        background: #ffffff; border: 8px solid var(--wall-color); border-radius: 4px; position: relative;
+    }
+
+    .room-card { padding: 25px; position: relative; text-align: left; cursor: pointer; transition: background-color 0.3s ease; }
+    .room-card:hover, .room-card.active { background-color: #f1f5f9; }
+
+    .room-owner { grid-column: 1; grid-row: 1; border-bottom: 8px solid var(--wall-color); border-right: 8px solid var(--wall-color); }
+    .room-board { grid-column: 1; grid-row: 2; border-bottom: 8px solid var(--wall-color); border-right: 8px solid var(--wall-color); }
+    .room-management { grid-column: 1; grid-row: 3; border-right: 8px solid var(--wall-color); }
+    .room-family { grid-column: 2; grid-row: 1 / span 3; }
+
+    .room-card::after { content: ''; position: absolute; background: #ffffff; transition: background-color 0.3s ease; }
+    .room-card:hover::after, .room-card.active::after { background-color: #f1f5f9; }
+    .room-owner::after, .room-board::after, .room-management::after { width: 8px; height: 40px; right: -8px; top: 40px; }
+    .room-board::before, .room-management::before { content: ''; position: absolute; background: #ffffff; width: 50px; height: 8px; top: -8px; left: 40px; transition: background-color 0.3s ease; }
+    .room-board:hover::before, .room-board.active::before, .room-management:hover::before, .room-management.active::before { background-color: #f1f5f9; }
+
+    .room-content { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
+    .room-text ul { margin: 8px 0 0 0; padding-left: 20px; font-size: 14px; color: #0f172a; font-weight: bold; }
+    .room-text li { margin-bottom: 4px; transition: color 0.3s ease; }
+    .room-text p { margin: 10px 0 0 0; font-size: 13px; color: #475569; line-height: 1.5; }
+    .room-card h3 { margin: 0; font-size: 20px; font-weight: 800; color: #0f172a; display: flex; justify-content: space-between; align-items: center;}
+    
+    .click-hint { font-size: 11px; font-weight: normal; color: #3b82f6; background: #dbeafe; padding: 3px 8px; border-radius: 12px;}
+    .room-icon { width: 55px; height: 55px; fill: #334155; opacity: 0.9; flex-shrink: 0; }
+
+    .room-owner.active h3 { color: var(--owner-color); }
+    .room-owner.active .room-icon { fill: var(--owner-color); }
+    .room-board.active h3 { color: var(--board-color); }
+    .room-board.active .room-icon { fill: var(--board-color); }
+    .room-management.active h3 { color: var(--manager-color); }
+    .room-management.active .room-icon { fill: var(--manager-color); }
+    .room-family.active h3 { color: var(--family-color); }
+    .room-family.active .room-icon { fill: var(--family-color); }
+
+    /* Deep Dive Modal */
+    .modal-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(8px);
+        display: flex; justify-content: center; align-items: center;
+        z-index: 2000; opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+    }
+    .modal-overlay.active { opacity: 1; pointer-events: auto; }
+    
+    .modal-content {
+        background: #ffffff; width: 90%; max-width: 600px; border-radius: 16px;
+        padding: 40px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        transform: translateY(20px); transition: transform 0.3s ease;
+        position: relative; text-align: left;
+    }
+    .modal-overlay.active .modal-content { transform: translateY(0); }
+    
+    .close-btn {
+        position: absolute; top: 20px; right: 20px; background: #f1f5f9;
+        border: none; width: 32px; height: 32px; border-radius: 50%;
+        font-size: 20px; cursor: pointer; color: #64748b; font-weight: bold;
+    }
+    .close-btn:hover { background: #e2e8f0; color: #0f172a; }
+    .modal-title { font-size: 24px; font-weight: 800; color: #0f172a; margin-top: 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px;}
+    .modal-body { font-size: 15px; color: #334155; line-height: 1.6; }
+    .modal-body p { margin-bottom: 15px; }
+
+    /* Tooltip */
+    #tooltip {
+        position: absolute; display: none; background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(12px); border: 1px solid rgba(203, 213, 225, 0.8);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15); border-radius: 12px;
+        padding: 20px; width: 260px; text-align: left; z-index: 1000;
+        pointer-events: none; opacity: 0; transition: opacity 0.2s ease, transform 0.2s ease;
+        transform: translateY(10px);
+    }
+    #tooltip.visible { opacity: 1; transform: translateY(0); }
+    .tooltip-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; }
+    .profile-pic { width: 50px; height: 50px; border-radius: 8px; background: #cbd5e1; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; color: #ffffff; }
+    .tooltip-title h3 { font-size: 18px; font-weight: 800; color: #0f172a; margin: 0 0 5px 0; }
+    .tooltip-tag { display: inline-block; padding: 4px 10px; border-radius: 9999px; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+    .tag-owner { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+    .tag-manager { background: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; }
+    .tag-spouse { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+    .tag-nextgen { background: #ccfbf1; color: #0f766e; border: 1px solid #99f6e4; }
+    .tooltip-share { font-size: 11px; font-weight: bold; color: #b91c1c; margin-bottom: 10px; display: block;}
+    #tooltip-desc { font-size: 13px; color: #334155; line-height: 1.5; margin: 0; }
+
+</style>
+</head>
+<body>
+
+<div id="deep-dive-modal" class="modal-overlay">
+    <div class="modal-content">
+        <button class="close-btn" onclick="closeModal()">×</button>
+        <h2 id="modal-title" class="modal-title">Room Analysis</h2>
+        <div id="modal-body" class="modal-body">Content goes here...</div>
+    </div>
+</div>
+
+<div id="tooltip">
+    <div class="tooltip-header">
+        <div class="profile-pic" id="tooltip-pic"></div>
+        <div class="tooltip-title">
+            <h3 id="tooltip-name">Name</h3>
+            <span id="tooltip-tag" class="tooltip-tag">Role</span>
+        </div>
+    </div>
+    <span id="tooltip-share" class="tooltip-share">Share</span>
+    <p id="tooltip-desc">Description goes here.</p>
+</div>
+
+<div class="container">
+    <h1>DD MATCH Interactive Business Genogram</h1>
+    <p class="subtitle">Hover over individuals to view their roles, or click the <strong>Four Rooms</strong> below for a deep-dive analysis.</p>
+    
+    <div class="controls-wrapper">
+        <div class="filter-bar">
+            <button class="filter-btn active" data-filter="all">Show All</button>
+            <button class="filter-btn" data-filter="manager">Decision Makers</button>
+            <button class="filter-btn" data-filter="owner">Founders & Owners</button>
+            <button class="filter-btn" data-filter="nextgen">Next Gen Succession</button>
+        </div>
+        
+        <div class="timeline-container">
+            <span class="timeline-label">Genogram (2026)</span>
+            <input type="range" id="genogram-slider" min="0" max="100" value="0">
+            <span class="timeline-label">(2050)</span>
+        </div>
+    </div>
+
+    <div class="svg-container">
+        <div class="html-legend">
+            <div class="legend-title">Business Roles:</div>
+            <div class="legend-item"><span class="legend-color owner-color"></span> Founder / Owner (Blue)</div>
+            <div class="legend-item"><span class="legend-color manager-color"></span> Manager (Dark Blue)</div>
+            <div class="legend-item"><span class="legend-color spouse-color"></span> Spouse / Non-Owner (Gray)</div>
+            <div class="legend-item"><span class="legend-color nextgen-color"></span> Next Gen Succession (Teal)</div>
+            <div class="legend-item"><span class="legend-dash"></span> Inherited Share Transfer</div>
+        </div>
+
+        <svg width="1700" height="700" viewBox="0 0 1700 700">
+            <g id="lines-layer">
+                <polyline points="600,170 600,240 300,240 300,300" class="trust-line" />
+                <polyline points="600,240 900,240 900,300" class="trust-line" />
+                <line x1="600" y1="240" x2="600" y2="300" class="trust-line" />
+                <polyline points="600,170 600,240 300,240 300,300" class="link-line"/> 
+                <polyline points="600,240 900,240 900,300" class="link-line"/> 
+                <line x1="600" y1="240" x2="600" y2="300" class="link-line"/> 
+                <polyline points="1300,170 1300,240 1200,240 1200,300" class="link-line"/> 
+                <polyline points="1300,240 1400,240 1400,300" class="link-line"/> 
+                
+                <line x1="1300" y1="170" x2="1300" y2="215" class="link-line" />
+                <path d="M 1300 215 C 1300 260, 1200 260, 1200 300" class="inheritance-line" />
+                <text x="1225" y="245" class="inheritance-text">+ 1/14 Inherited</text>
+                <path d="M 1300 215 C 1300 260, 1400 260, 1400 300" class="inheritance-line" />
+                <text x="1375" y="245" class="inheritance-text">+ 1/14 Inherited</text>
+
+                <line x1="180" y1="320" x2="300" y2="320" class="link-line"/> 
+                <line x1="600" y1="320" x2="720" y2="320" class="link-line"/> 
+                <line x1="900" y1="320" x2="1020" y2="320" class="link-line"/> 
+                <line x1="1080" y1="320" x2="1200" y2="320" class="link-line"/> 
+                <line x1="1400" y1="320" x2="1520" y2="320" class="link-line"/> 
+                <polyline points="240,320 240,500" class="link-line"/> 
+                <polyline points="660,320 660,410 560,410 560,500" class="link-line"/>
+                <polyline points="660,410 760,410 760,500" class="link-line"/>
+                <line x1="660" y1="410" x2="660" y2="500" class="link-line"/>
+                <polyline points="960,320 960,410 910,410 910,500" class="link-line"/>
+                <polyline points="960,410 1010,410 1010,500" class="link-line"/>
+                <polyline points="1140,320 1140,410 1090,410 1090,500" class="link-line"/>
+                <polyline points="1140,410 1190,410 1190,500" class="link-line"/>
+                <polyline points="1460,320 1460,410 1410,410 1410,500" class="link-line"/>
+                <polyline points="1460,410 1510,410 1510,500" class="link-line"/>
+            </g>
+
+            <g class="person-node gen-1" data-role="owner" data-rooms="owner,family" transform="translate(600, 150)" 
+            data-name="Diane" data-type="owner" data-share="2/14 Share" 
+            data-desc="Founder / Original 2/14 Share. While not deeply involved in day-to-day operations, she loves staying connected and hearing all the business news and updates.">
+                <rect x="-20" y="-20" width="40" height="40" rx="4" class="owner-shape" />
+                <rect x="-65" y="24" width="130" height="42" fill="#ffffff" />
+                <text y="35" class="name">Diane</text><text y="48" class="detail">Founder / Owner</text><text y="60" class="detail">Orig. 2/14 Share</text>
+            </g>
+            <g class="person-node gen-1" data-role="owner" data-rooms="family" transform="translate(1300, 150)"
+            data-name="Carol" data-type="owner" data-share="Original 2/14 Share"
+            data-desc="Original founding member who passed away. Her share was divided equally between her two children, Tony and Andrea.">
+                <rect x="-20" y="-20" width="40" height="40" rx="4" class="owner-shape" />
+                <line x1="-25" y1="25" x2="25" y2="-25" class="deceased-line"/>
+                <rect x="-65" y="24" width="130" height="42" fill="#ffffff" />
+                <text y="35" class="name">Carol</text><text y="48" class="detail">Deceased Founder</text><text y="60" class="highlight-text">Orig. 2/14 Share</text>
+            </g>
+
+            <g class="person-node gen-2" data-role="spouse" data-rooms="family" transform="translate(180, 320)"
+            data-name="Randy" data-type="spouse" data-share="Non-Owner" data-desc="Spouse to Michele. Plays a supporting family role.">
+                <circle cx="0" cy="0" r="20" class="nonowner-shape" /><text y="35" class="name">Randy</text><text y="48" class="detail">Spouse</text>
+            </g>
+            <g class="person-node gen-2" data-role="owner" data-rooms="owner,family" transform="translate(300, 320)"
+            data-name="Michele" data-type="owner" data-share="2/14 Share" data-desc="Original 1/7 Owner. Based in Oregon, but remains highly active and very close with the entire family.">
+                <rect x="-20" y="-20" width="40" height="40" rx="4" class="owner-shape" /><text y="35" class="name">Michele</text><text y="48" class="detail">Founder / Owner</text><text y="60" class="detail">Orig. 2/14 Share</text>
+            </g>
+            <g class="person-node gen-2" data-role="owner" data-rooms="owner,family" transform="translate(600, 320)"
+            data-name="Dennis" data-type="owner" data-share="2/14 Share" data-desc="Original 1/7 Owner. Based in Alabama, remains heavily involved in operations and high-level DD MATCH decisions.">
+                <rect x="-20" y="-20" width="40" height="40" rx="4" class="owner-shape" /><text y="35" class="name">Dennis</text><text y="48" class="detail">Founder / Owner</text><text y="60" class="detail">Orig. 2/14 Share</text>
+            </g>
+            <g class="person-node gen-2" data-role="spouse" data-rooms="family" transform="translate(720, 320)"
+            data-name="Sheri" data-type="spouse" data-share="Non-Owner" data-desc="Spouse to Dennis. Not involved in active DD MATCH management.">
+                <circle cx="0" cy="0" r="20" class="nonowner-shape" /><text y="35" class="name">Sheri</text><text y="48" class="detail">Spouse</text>
+            </g>
+            <g class="person-node gen-2" data-role="owner" data-rooms="owner,family" transform="translate(900, 320)"
+            data-name="Heidi" data-type="owner" data-share="2/14 Share" data-desc="Original 1/7 Owner. Married to Mark Finberg, who handles active management duties.">
+                <rect x="-20" y="-20" width="40" height="40" rx="4" class="owner-shape" /><text y="35" class="name">Heidi</text><text y="48" class="detail">Founder / Owner</text><text y="60" class="detail">Orig. 2/14 Share</text>
+            </g>
+            <g class="person-node gen-2" data-role="manager spouse" data-rooms="board,management,family" transform="translate(1020, 320)"
+            data-name="Mark Finberg" data-type="manager" data-share="Non-Owner (Spouse)" data-desc="Key Decision Maker. While a spouse without original shares, he works perfectly with Tony and Andrea by managing specific swimlanes.">
+                <rect x="-20" y="-20" width="40" height="40" rx="4" class="manager-shape" /><text y="35" class="name">Mark</text><text y="48" class="manager-text">Manager</text><text y="60" class="detail">(Spouse)</text><text y="70" class="detail">(Non-Owner)</text>
+            </g>
+            <g class="person-node gen-2" data-role="spouse" data-rooms="family" transform="translate(1080, 320)"
+            data-name="Julie" data-type="spouse" data-share="Non-Owner" data-desc="Spouse to Tony.">
+                <circle cx="0" cy="0" r="20" class="nonowner-shape" /><text y="35" class="name">Julie</text><text y="48" class="detail">Spouse</text>
+            </g>
+            <g class="person-node gen-2" data-role="owner manager" data-rooms="owner,board,management,family" transform="translate(1200, 320)"
+            data-name="Tony" data-type="manager" data-share="3/14 Share" data-desc="Founder and Key Decision Maker. Inherited half of Carol's shares (1/14). Collaborates seamlessly with Mark and Andrea.">
+                <rect x="-20" y="-20" width="40" height="40" rx="4" class="manager-shape" /><text y="35" class="name">Tony</text><text y="48" class="manager-text">Founder / Manager</text><text y="60" class="highlight-text">3/14 Share</text>
+            </g>
+            <g class="person-node gen-2" data-role="owner manager" data-rooms="owner,board,management,family" transform="translate(1400, 320)"
+            data-name="Andrea" data-type="manager" data-share="3/14 Share" data-desc="Founder and Key Decision Maker. Inherited half of Carol's shares. Part of the core, zero-conflict management trio.">
+                <rect x="-20" y="-20" width="40" height="40" rx="4" class="manager-shape" /><text y="35" class="name">Andrea</text><text y="48" class="manager-text">Founder / Manager</text><text y="60" class="highlight-text">3/14 Share</text>
+            </g>
+            <g class="person-node gen-2" data-role="spouse" data-rooms="family" transform="translate(1520, 320)"
+            data-name="Daniel" data-type="spouse" data-share="Non-Owner" data-desc="Spouse to Andrea.">
+                <circle cx="0" cy="0" r="20" class="nonowner-shape" /><text y="35" class="name">Daniel</text><text y="48" class="detail">Spouse</text>
+            </g>
+
+            <g class="person-node gen-3" data-role="nextgen" data-rooms="family,owner" transform="translate(240, 520)" data-name="River" data-type="nextgen" data-share="Future Succession" data-desc="Next generation member. Business is planned to pass down organically.">
+                <circle cx="0" cy="0" r="16" class="nextgen-shape" /><text y="30" class="name">River</text>
+            </g>
+            <g class="person-node gen-3" data-role="nextgen" data-rooms="family,owner,board,management" transform="translate(560, 520)" data-name="Adam" data-type="nextgen" data-share="Future Succession" data-desc="Next generation member. Future management candidate currently building outside career.">
+                <circle cx="0" cy="0" r="16" class="nextgen-shape" /><text y="30" class="name">Adam</text><text y="42" class="detail">Engaged</text>
+            </g>
+            <g class="person-node gen-3" data-role="nextgen" data-rooms="family,owner,board,management" transform="translate(660, 520)" data-name="Danny" data-type="nextgen" data-share="Future Succession" data-desc="Next generation member. Future management candidate currently building outside career.">
+                <circle cx="0" cy="0" r="16" class="nextgen-shape" /><text y="30" class="name">Danny</text><text y="42" class="detail">Married</text>
+            </g>
+            <g class="person-node gen-3" data-role="nextgen" data-rooms="family,owner" transform="translate(760, 520)" data-name="Josh" data-type="nextgen" data-share="Future Succession" data-desc="Next generation member.">
+                <circle cx="0" cy="0" r="16" class="nextgen-shape" /><text y="30" class="name">Josh</text><text y="42" class="detail">Single</text>
+            </g>
+            <g class="person-node gen-3" data-role="nextgen" data-rooms="family,owner" transform="translate(910, 520)" data-name="Caitlin" data-type="nextgen" data-share="Future Succession" data-desc="Next generation member. Shares will eventually be passed down to her and Kyle.">
+                <circle cx="0" cy="0" r="16" class="nextgen-shape" /><text y="30" class="name">Caitlin</text>
+            </g>
+            <g class="person-node gen-3" data-role="nextgen" data-rooms="family,owner,board,management" transform="translate(1010, 520)" data-name="Kyle" data-type="nextgen" data-share="Future Succession" data-desc="Next generation member. Future management candidate currently building outside career.">
+                <circle cx="0" cy="0" r="16" class="nextgen-shape" /><text y="30" class="name">Kyle</text>
+            </g>
+            <g class="person-node gen-3" data-role="nextgen" data-rooms="family,owner" transform="translate(1090, 520)" data-name="Claire" data-type="nextgen" data-share="Future Succession" data-desc="Next generation member under Tony's branch.">
+                <circle cx="0" cy="0" r="16" class="nextgen-shape" /><text y="30" class="name">Claire</text>
+            </g>
+            <g class="person-node gen-3" data-role="nextgen" data-rooms="family,owner,board,management" transform="translate(1190, 520)" data-name="Cole" data-type="nextgen" data-share="Future Succession" data-desc="Next generation member. Future management candidate currently building outside career.">
+                <circle cx="0" cy="0" r="16" class="nextgen-shape" /><text y="30" class="name">Cole</text>
+            </g>
+            <g class="person-node gen-3" data-role="nextgen" data-rooms="family,owner" transform="translate(1410, 520)" data-name="Tesla" data-type="nextgen" data-share="Future Succession" data-desc="Next generation member under Andrea's branch.">
+                <circle cx="0" cy="0" r="16" class="nextgen-shape" /><text y="30" class="name">Tesla</text>
+            </g>
+            <g class="person-node gen-3" data-role="nextgen" data-rooms="family,owner" transform="translate(1510, 520)" data-name="Sariya" data-type="nextgen" data-share="Future Succession" data-desc="Next generation member under Andrea's branch.">
+                <circle cx="0" cy="0" r="16" class="nextgen-shape" /><text y="30" class="name">Sariya</text>
+            </g>
+        </svg>
+    </div>
+
+    <div class="controls-wrapper" style="margin-bottom: 20px;">
+        <div class="timeline-container">
+            <span class="timeline-label">Rooms (2026)</span>
+            <input type="range" id="rooms-slider" min="0" max="100" value="0">
+            <span class="timeline-label">(2050)</span>
+        </div>
+    </div>
+
+    <div class="four-room-wrapper">
+        <div class="four-room-header">
+            <h2>DD MATCH: Four Room Governance Model</h2>
+            <p>Hover over the rooms to isolate the structure, or <strong>click a room for a Deep-Dive Analysis.</strong></p>
+        </div>
+        
+        <div class="four-room-house">
+            
+            <div class="room-card room-owner" id="room-owner" onclick="openModal('owner')">
+                <div class="room-content">
+                    <div class="room-text">
+                        <h3>Owner Room <span class="click-hint">Click to expand</span></h3>
+                        <ul id="list-owners">
+                            <li>Diane (2/14 Share)</li>
+                            <li>Michele, Dennis, Heidi (2/14 Each)</li>
+                            <li>Tony & Andrea (3/14 Each)</li>
+                            <li>Next Gen (Future Succession)</li>
+                        </ul>
+                        <p id="desc-owners"><strong>Key Decisions:</strong> Transferring shares to the Next Gen and maintaining the legacy.</p>
+                    </div>
+                    <svg class="room-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="5" r="3"/><circle cx="19" cy="12" r="3"/><circle cx="5" cy="12" r="3"/><circle cx="12" cy="19" r="3"/><line x1="12" y1="8" x2="19" y2="12" stroke="currentColor" stroke-width="2"/><line x1="12" y1="8" x2="5" y2="12" stroke="currentColor" stroke-width="2"/><line x1="5" y1="12" x2="12" y2="19" stroke="currentColor" stroke-width="2"/><line x1="19" y1="12" x2="12" y2="19" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                </div>
+            </div>
+            
+            <div class="room-card room-board" id="room-board" onclick="openModal('board')">
+                <div class="room-content">
+                    <div class="room-text">
+                        <h3>Board Room <span class="click-hint">Click to expand</span></h3>
+                        <ul id="list-board">
+                            <li>Mark Finberg</li>
+                            <li>Tony</li>
+                            <li>Andrea</li>
+                        </ul>
+                        <p id="desc-board"><strong>Key Decisions:</strong> High-level business strategy and managing the active succession plan.</p>
+                    </div>
+                    <svg class="room-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="7" r="3"/><circle cx="6" cy="9" r="2.5"/><circle cx="18" cy="9" r="2.5"/><path d="M2 18c0-3 3-5 4-5h12c1 0 4 2 4 5v3H2v-3z"/>
+                    </svg>
+                </div>
+            </div>
+            
+            <div class="room-card room-management" id="room-management" onclick="openModal('management')">
+                <div class="room-content">
+                    <div class="room-text">
+                        <h3>Management Room <span class="click-hint">Click to expand</span></h3>
+                        <ul id="list-management">
+                            <li>Mark Finberg (Ops)</li>
+                            <li>Tony</li>
+                            <li>Andrea</li>
+                        </ul>
+                        <p id="desc-management"><strong>Key Decisions:</strong> Executing day-to-day operations seamlessly via distinct swimlanes.</p>
+                    </div>
+                    <svg class="room-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="9" y="3" width="6" height="5"/><rect x="2" y="14" width="6" height="5"/><rect x="9" y="14" width="6" height="5"/><rect x="16" y="14" width="6" height="5"/><line x1="12" y1="8" x2="12" y2="11" stroke="currentColor" stroke-width="2"/><line x1="5" y1="11" x2="19" y2="11" stroke="currentColor" stroke-width="2"/><line x1="5" y1="11" x2="5" y2="14" stroke="currentColor" stroke-width="2"/><line x1="12" y1="11" x2="12" y2="14" stroke="currentColor" stroke-width="2"/><line x1="19" y1="11" x2="19" y2="14" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                </div>
+            </div>
+            
+            <div class="room-card room-family" id="room-family" onclick="openModal('family')">
+                <div class="room-content">
+                    <div class="room-text">
+                        <h3>Family Room <span class="click-hint">Click to expand</span></h3>
+                        <ul id="list-family">
+                            <li>Diane (Matriarch)</li>
+                            <li>All 6 Siblings & 4 Spouses</li>
+                            <li>All 10 Grandchildren</li>
+                        </ul>
+                        <p id="desc-family"><strong>Key Decisions:</strong> Maintaining family unity across states and keeping business conflict out of holidays.</p>
+                        
+                        <svg style="margin-top: 25px;" width="120" height="50" viewBox="0 0 100 40" xmlns="http://www.w3.org/2000/svg">
+                            <g fill="#334155">
+                                <circle cx="20" cy="10" r="5"/><path d="M15 18h10v12h-3v10h-4v-10h-3z"/> 
+                                <circle cx="40" cy="15" r="4"/><path d="M36 21h8v10h-2v9h-4v-9h-2z"/> 
+                                <circle cx="60" cy="10" r="5"/><path d="M55 18h10l-2 15h-2v7h-2v-7h-2z"/> 
+                                <circle cx="80" cy="18" r="3.5"/><path d="M77 23h6v8h-1.5v9h-3v-9h-1.5z"/> 
+                            </g>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Dynamic Modals Logic (Updates based on Timeline!) ---
+    let isFuture = false;
+
+    function getModalData() {
+        if (isFuture) {
+            return {
+                owner: {
+                    title: "Owner Room (2050): The Cousin Consortium",
+                    body: `<p>By 2050, the Owner Room has fully transitioned to the third generation. The 10 cousins—<strong>River, Adam, Danny, Josh, Caitlin, Kyle, Claire, Cole, Tesla, and Sariya</strong>—now hold the equity.</p>
+                           <p>Their primary function is to act as responsible stewards of the family's wealth, define the long-term financial expectations for DD MATCH, and formally elect Adam, Danny, Kyle, and Cole to the Board to execute that vision.</p>`
+                },
+                board: {
+                    title: "Board Room (2050): Next Gen Leadership",
+                    body: `<p>The Board Room is now controlled by the elected Next Gen leaders: <strong>Adam, Danny, Kyle, and Cole.</strong></p>
+                           <p>Having learned from Mark, Tony, and Andrea, this quartet oversees high-level strategy and capital allocation, ensuring the company remains profitable for the wider cousin consortium.</p>`
+                },
+                management: {
+                    title: "Management Room (2050): Future Operations",
+                    body: `<p><strong>Adam, Danny, Kyle, and Cole</strong> execute the day-to-day operations. Following the successful precedent set by Gen 2, they divide responsibilities into distinct "swimlanes" based on their individual career expertise.</p>
+                           <p>Since they all have other primary careers, this room operates highly efficiently, focusing on core deliverables rather than micromanagement.</p>`
+                },
+                family: {
+                    title: "Family Room (2050): Expanding the Legacy",
+                    body: `<p>In 2050, the Family Room is larger and more geographically diverse than ever, expanding to include the <strong>10 cousins, their respective spouses, and the emerging 4th generation.</strong></p>
+                           <p>To maintain unity without day-to-day business overlap, the family relies on structured annual retreats and family assemblies. This room is dedicated to preserving the legacy of Diane and Carol, educating Gen 4 on stewardship, and celebrating family milestones completely separate from corporate governance.</p>`
+                }
+            };
+        } else {
+            return {
+                owner: {
+                    title: "Owner Room: Equity & Legacy",
+                    body: `<p>The Owner Room at DD MATCH currently consists of the original founders (Diane, Michele, Dennis, Heidi) who hold 2/14th shares, and Tony and Andrea who hold 3/14th shares following the equal division of Carol’s original share.</p>
+                           <p>Moving toward 2050, the transition of ownership to the Next Generation (Adam, Danny, Kyle, Cole, etc.) is viewed flexibly. Because the grandchildren all have primary careers, their future involvement is treated as a "side thing" rather than a mandatory full-time job.</p>`
+                },
+                board: {
+                    title: "Board Room: Strategy & Succession",
+                    body: `<p>Governance and strategic oversight are functionally merged among Mark, Tony, and Andrea. They operate with high synergy and essentially zero conflict.</p>
+                           <p>They do not require formal voting mechanisms or intense board meetings to break ties because they implicitly trust each other's judgment.</p>`
+                },
+                management: {
+                    title: "Management Room: Day-to-Day Operations",
+                    body: `<p>Because Dennis is based in Alabama and Michele is in Oregon, local day-to-day operations are concentrated into the hands of Mark, Tony, and Andrea.</p>
+                           <p>This room runs flawlessly because the three leaders manage distinct, separate aspects of the business—effectively operating in their own "swimlanes."</p>`
+                },
+                family: {
+                    title: "Family Room: Unity & Harmony",
+                    body: `<p>The family maintains its unity across multiple states through a blend of modern and traditional communication.</p>
+                           <p>Formal business updates occur a few times a year via Zoom or in-person meetings. However, the bulk of family connection happens informally during holidays and gatherings. By keeping holiday discussions casual, DD MATCH protects its family relationships from corporate stress.</p>`
+                }
+            };
+        }
+    }
+
+    function openModal(roomKey) {
+        const currentData = getModalData();
+        document.getElementById('modal-title').textContent = currentData[roomKey].title;
+        document.getElementById('modal-body').innerHTML = currentData[roomKey].body;
+        document.getElementById('deep-dive-modal').classList.add('active');
+    }
+    
+    function closeModal() {
+        document.getElementById('deep-dive-modal').classList.remove('active');
+    }
+
+    // --- Hover Tooltip Logic ---
+    const tooltip = document.getElementById('tooltip');
+    const tooltipName = document.getElementById('tooltip-name');
+    const tooltipTag = document.getElementById('tooltip-tag');
+    const tooltipShare = document.getElementById('tooltip-share');
+    const tooltipDesc = document.getElementById('tooltip-desc');
+    const tooltipPic = document.getElementById('tooltip-pic');
+    
+    const nodes = document.querySelectorAll('.person-node');
+    const roomCardsList = document.querySelectorAll('.room-card');
+    const roomCards = { owner: document.getElementById('room-owner'), board: document.getElementById('room-board'), management: document.getElementById('room-management'), family: document.getElementById('room-family') };
+    const futureManagers = ["Adam", "Danny", "Kyle", "Cole"];
+
+    nodes.forEach(node => {
+        node.addEventListener('mouseenter', (e) => {
+            const name = node.getAttribute('data-name');
+            const type = node.getAttribute('data-type');
+            const share = node.getAttribute('data-share');
+            const desc = node.getAttribute('data-desc');
+            const activeRooms = node.getAttribute('data-rooms').split(',');
+
+            tooltipName.textContent = name;
+            tooltipShare.textContent = share;
+            tooltipDesc.textContent = desc;
+            tooltipTag.textContent = type;
+            tooltipTag.className = `tooltip-tag tag-${type}`;
+            tooltipPic.textContent = name.charAt(0);
+
+            tooltip.style.display = 'block';
+            setTimeout(() => tooltip.classList.add('visible'), 10);
+
+            Object.values(roomCards).forEach(card => card.classList.remove('active'));
+            activeRooms.forEach(room => {
+                if(roomCards[room]) roomCards[room].classList.add('active');
+            });
+        });
+
+        node.addEventListener('mousemove', (e) => {
+            tooltip.style.left = (e.pageX + 20) + 'px';
+            tooltip.style.top = (e.pageY + 20) + 'px';
+        });
+
+        node.addEventListener('mouseleave', () => {
+            tooltip.classList.remove('visible');
+            setTimeout(() => { if(!tooltip.classList.contains('visible')) tooltip.style.display = 'none'; }, 200);
+            Object.values(roomCards).forEach(card => card.classList.remove('active'));
+        });
+    });
+
+    roomCardsList.forEach(card => {
+        card.addEventListener('mouseenter', () => {
+            const roomName = card.id.replace('room-', '');
+            nodes.forEach(node => {
+                const activeRooms = node.getAttribute('data-rooms').split(',');
+                if (activeRooms.includes(roomName)) {
+                    node.classList.remove('dimmed');
+                } else {
+                    node.classList.add('dimmed');
+                }
+            });
+        });
+
+        card.addEventListener('mouseleave', () => {
+            document.querySelector('.filter-btn.active').click();
+        });
+    });
+
+    const filterBtns = document.querySelectorAll('.filter-btn');
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.getElementById('genogram-slider').value = 0;
+            applyGenogramTimeline(0);
+
+            filterBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const filterType = btn.getAttribute('data-filter');
+
+            nodes.forEach(node => {
+                const roleAttr = node.getAttribute('data-role') || '';
+                const roles = roleAttr.split(' ');
+                if (filterType === 'all' || roles.includes(filterType)) {
+                    node.classList.remove('dimmed');
+                } else {
+                    node.classList.add('dimmed');
+                }
+            });
+        });
+    });
+
+    // --- SEPARATE TIMELINE LOGIC ---
+    
+    // Genogram Slider
+    const genSlider = document.getElementById('genogram-slider');
+    genSlider.addEventListener('input', (e) => {
+        filterBtns.forEach(b => b.classList.remove('active'));
+        document.querySelector('[data-filter="all"]').classList.add('active');
+        nodes.forEach(node => node.classList.remove('dimmed'));
+        applyGenogramTimeline(e.target.value);
+    });
+
+    function applyGenogramTimeline(val) {
+        const percent = val / 100;
+        document.querySelectorAll('.gen-1').forEach(n => n.style.opacity = 1 - (percent * 0.8));
+        document.querySelectorAll('.gen-2').forEach(n => n.style.opacity = 1 - (percent * 0.4));
+
+        document.querySelectorAll('.gen-3').forEach(node => {
+            const name = node.getAttribute('data-name');
+            const shape = node.querySelector('.nextgen-shape');
+            
+            if(percent > 0.8) {
+                if(futureManagers.includes(name)) {
+                    shape.style.fill = "#1e3a8a"; shape.style.stroke = "#172554";
+                } else {
+                    shape.style.fill = "#3b82f6"; shape.style.stroke = "#2563eb";
+                }
+            } else {
+                shape.style.fill = "#ccfbf1"; shape.style.stroke = "#0f766e";
+            }
+        });
+    }
+
+    // Rooms Slider (Includes dynamically updating the text!)
+    const roomsSlider = document.getElementById('rooms-slider');
+    roomsSlider.addEventListener('input', (e) => {
+        applyRoomsTimeline(e.target.value);
+    });
+
+    function applyRoomsTimeline(val) {
+        const percent = val / 100;
+        
+        if (percent > 0.8) {
+            isFuture = true; // This tells the Modals to load the 2050 text
+            document.getElementById('list-owners').innerHTML = `<li><strong>The Cousin Consortium:</strong></li><li>River, Adam, Danny, Josh</li><li>Caitlin, Kyle</li><li>Claire, Cole, Tesla, Sariya</li>`;
+            document.getElementById('desc-owners').innerHTML = `<strong>Key Decisions:</strong> Stewarding inherited equity, setting dividend policies, and formally electing the 4-person leadership team.`;
+            
+            document.getElementById('list-board').innerHTML = `<li>Adam</li><li>Danny</li><li>Kyle</li><li>Cole</li>`;
+            document.getElementById('desc-board').innerHTML = `<strong>Key Decisions:</strong> High-level strategy, capital allocation, and ensuring profitability for the wider cousin consortium.`;
+            
+            document.getElementById('list-management').innerHTML = `<li>Adam</li><li>Danny</li><li>Kyle</li><li>Cole</li>`;
+            document.getElementById('desc-management').innerHTML = `<strong>Key Decisions:</strong> Executing day-to-day operations in distinct swimlanes alongside outside primary careers.`;
+            
+            document.getElementById('list-family').innerHTML = `<li>The 10 Cousins (Gen 3)</li><li>Future Spouses</li><li>The Great-Grandchildren (Gen 4)</li>`;
+            document.getElementById('desc-family').innerHTML = `<strong>Key Decisions:</strong> Preserving founders' legacy, hosting annual assemblies, and educating Gen 4 on stewardship.`;
+        } else {
+            isFuture = false; // Reset to 2026 text
+            document.getElementById('list-owners').innerHTML = `<li>Diane (2/14 Share)</li><li>Michele, Dennis, Heidi (2/14 Each)</li><li>Tony & Andrea (3/14 Each)</li><li>Next Gen (Future Succession)</li>`;
+            document.getElementById('desc-owners').innerHTML = `<strong>Key Decisions:</strong> Transferring shares to the Next Gen and maintaining the legacy.`;
+            
+            document.getElementById('list-board').innerHTML = `<li>Mark Finberg</li><li>Tony</li><li>Andrea</li>`;
+            document.getElementById('desc-board').innerHTML = `<strong>Key Decisions:</strong> High-level business strategy and managing the active succession plan.`;
+            
+            document.getElementById('list-management').innerHTML = `<li>Mark Finberg (Ops)</li><li>Tony</li><li>Andrea</li>`;
+            document.getElementById('desc-management').innerHTML = `<strong>Key Decisions:</strong> Executing day-to-day operations seamlessly via distinct swimlanes.`;
+            
+            document.getElementById('list-family').innerHTML = `<li>Diane (Matriarch)</li><li>All 6 Siblings & 4 Spouses</li><li>All 10 Grandchildren</li>`;
+            document.getElementById('desc-family').innerHTML = `<strong>Key Decisions:</strong> Maintaining family unity across states and keeping business conflict out of holidays.`;
+        }
+    }
+</script>
+
+</body>
+</html>
